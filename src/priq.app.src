@@ -8,5 +8,5 @@
 
   {maintainers, ["Shanti Chellaram"]},
   {licenses, ["Apache 2.0"]},
-  {links, [{"GitHub", "https://github.com/shantiii/priq"]}
+  {links, [{"GitHub", "https://github.com/shantiii/priq"}]}
  ]}.

@@ -8,21 +8,22 @@
 %%
 %% Credits to Chris Okasaki for a phenomenal book.
 
--export([new/0, insert/2, find_min/1, delete_min/1, merge/2]).
+-export([new/0, insert/2, peek_min/1, delete_min/1, merge/2]).
 
--record(tree, {rank=0, root, elem_rest=[], rest=[]}).
--record(sbheap, {trees=[]}).
--record(bsheap, {root, hheap=#sbheap{}}).
+-record(tree, {root, rank=0, elem_rest=[], rest=[]}).
+-record(bsheap, {root, hheap=[]}).
 
 %% Public Interface
 
+-spec new() -> any().
 new() -> bs_new().
 
 merge(H1, H2) -> bs_merge(H1,H2).
 
 insert(E, H) -> bs_insert(E, H).
 
-find_min(H) -> bs_lookup_min(H).
+-spec peek_min(any()) -> any().
+peek_min(H) -> bs_lookup_min(H).
 
 delete_min(H) -> bs_delete_min(H).
 
@@ -43,7 +44,7 @@ bs_lookup_min(empty) -> error;
 bs_lookup_min(#bsheap{root=X}) -> {ok,X}.
 
 bs_delete_min(empty) -> error;
-bs_delete_min(#bsheap{hheap=#sbheap{trees=[]}}) -> {ok,empty};
+bs_delete_min(#bsheap{hheap=[]}) -> {ok,empty};
 bs_delete_min(#bsheap{hheap=SBHeap}) ->
   {ok,#bsheap{root=Root,hheap=SB1}}=sb_lookup_min(SBHeap),
   {ok,SB2}=sb_delete_min(SBHeap),
@@ -51,17 +52,14 @@ bs_delete_min(#bsheap{hheap=SBHeap}) ->
 
 %% Skew Binomial Heap Interface
 
-sb_insert(E, #sbheap{trees=[T1,T2|TRest]}) when T1#tree.rank =:= T2#tree.rank ->
-  N=skew_link(E, T1, T2),
-  #sbheap{trees=[N|TRest]};
-sb_insert(E, #sbheap{trees=Trees}) ->
-  N=#tree{root=E},
-  #sbheap{trees=[N|Trees]}.
+sb_insert(E, [T1,T2|TRest]) when T1#tree.rank =:= T2#tree.rank ->
+  [skew_link(E, T1, T2)|TRest];
+sb_insert(E, Trees) ->
+  [#tree{root=E}|Trees].
 
-sb_lookup_min(#sbheap{trees=Trees}) -> do_lookup_min(Trees).
+sb_lookup_min(Trees) -> do_lookup_min(Trees).
 
-sb_merge(#sbheap{trees=T1s}, #sbheap{trees=T2s}) ->
-  #sbheap{trees=merge_trees(normalize(T1s),normalize(T2s))}.
+sb_merge(T1s, T2s) -> merge_trees(normalize(T1s),normalize(T2s)).
 
 merge_trees([], Ts) -> Ts;
 merge_trees(Ts, []) -> Ts;
@@ -72,19 +70,22 @@ merge_trees([T1|T1s], [T2|T2s]) when T1#tree.rank < T2#tree.rank ->
 merge_trees([T1|T1s], [T2|T2s]) ->
   [T2|merge_trees([T1|T1s], T2s)].
 
-normalize(Ts) -> lists:foldl(fun ins_tree/2, [], Ts).
+normalize([]) -> [];
+normalize([T|Ts]) -> ins_tree(T, Ts).
 
-sb_delete_min(#sbheap{trees=[]}) -> error;
-sb_delete_min(#sbheap{trees=Trees}) ->
+sb_delete_min([]) -> error;
+sb_delete_min(Trees) ->
   {#tree{elem_rest=Xs,rest=C},Ts}=tree_get_min(Trees),
-  M=#sbheap{trees=merge_trees(lists:reverse(C),normalize(Ts))},
+  M=merge_trees(lists:reverse(C),normalize(Ts)),
   {ok,lists:foldl(fun sb_insert/2, M, Xs)}.
 
 %% Skew Binomial Tree Functions
 
-sbt_link(X=#tree{root=XRoot}, Y=#tree{root=YRoot}) when XRoot =< YRoot ->
+%% sbt_link takes 2 trees with rank R and merges them into a new tree with rank
+%% R+1, making the subtree with worse priority a child of the subtree with lower priority
+sbt_link(X=#tree{rank=Rank, root=XRoot}, Y=#tree{rank=Rank, root=YRoot}) when XRoot =< YRoot ->
       X#tree{rank=X#tree.rank+1,rest=[Y|X#tree.rest]};
-sbt_link(X=#tree{}, Y=#tree{}) ->
+sbt_link(X=#tree{rank=Rank}, Y=#tree{rank=Rank}) ->
       Y#tree{rank=X#tree.rank+1,rest=[X|Y#tree.rest]}.
 
 skew_link(E, X, Y) ->
@@ -114,3 +115,53 @@ do_lookup_min([#tree{root=Root}|Rest]) ->
 ins_tree(T, []) -> [T];
 ins_tree(T1, [T2|Ts]) when T1#tree.rank < T2#tree.rank -> [T1,T2|Ts];
 ins_tree(T1, [T2|Ts]) -> ins_tree(sbt_link(T1,T2), Ts).
+
+%% EUnit Tests
+
+-ifdef(EUNIT).
+-include_lib("eunit/include/eunit.hrl").
+
+foldl(_Fun, Acc0, empty) -> Acc0;
+foldl(Fun, AccIn, QIn) ->
+  {ok, E} = peek_min(QIn),
+  Acc = Fun(E, AccIn),
+  {ok, Q} = delete_min(QIn),
+  foldl(Fun, Acc, Q).
+
+to_list(Q) -> foldl(fun(E,L) -> [E|L] end, [], Q).
+
+enqueue_test() ->
+  Value = 3,
+  A0 = new(),
+  A1 = insert(Value, A0),
+  ?assertMatch(error, peek_min(A0)),
+  ?assertMatch({ok, Value}, peek_min(A1)).
+
+repeatedly(_Fun, 0) -> [];
+repeatedly(Fun, N) -> [Fun()| repeatedly(Fun, N-1)].
+
+usage_test() ->
+  Value = repeatedly(fun() -> rand:uniform(10) end, 10),
+  Q = lists:foldl(fun insert/2, new(), Value),
+  Returned = to_list(Q),
+  Sorted = lists:sort(fun(A,B) -> B =< A end, Value),
+  ?assertMatch(Sorted, Returned).
+
+window_test() ->
+  ?debugVal(rand:export_seed()),
+  N = 1000,
+  K = 100,
+  Values = repeatedly(fun() -> rand:uniform(1000) end, N),
+  MaxK = lists:sublist(lists:reverse(lists:sort(Values)), K),
+  ?debugVal(MaxK),
+  ?debugVal(length(MaxK)),
+  First = lists:foldl(fun insert/2, new(), lists:sublist(Values, K)),
+  Rest = lists:sublist(Values, K+1, N-K),
+  Q = lists:foldl(fun(E, Q0) -> {ok, Q1} = delete_min(insert(E, Q0)), Q1 end, First, Rest),
+  ResultSet = to_list(Q),
+  ?debugVal(ResultSet),
+  ?debugVal(length(ResultSet)),
+  % we test for superset membership here because the "naive" MaxK loses items.
+  ?assertMatch(MaxK, ResultSet).
+
+-endif.
