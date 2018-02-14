@@ -30,4 +30,5 @@ Contributors
 ------------
 
 Shanti Chellaram
+
 [github]: https://github.com/shantiii/priq
