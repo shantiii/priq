@@ -1,0 +1,12 @@
+{application, priq,
+ [{description, "Asymptotically Efficient Priority Queues"},
+  {vsn, "0.2.0"},
+  {registered, []},
+  {applications, [kernel, stdlib]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, ["Shanti Chellaram"]},
+  {licenses, ["Apache 2.0"]},
+  {links, [{"GitHub", "https://github.com/shantiii/priq"]}
+ ]}.

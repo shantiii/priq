@@ -1,4 +1,4 @@
--module(pqueue).
+-module(priq).
 
 %% An implemention of a priority queue, backed by a persistent* skew binary heap.
 %%
