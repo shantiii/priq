@@ -2,9 +2,7 @@
 
 %% An implemention of a priority queue, backed by a persistent* skew binary heap.
 %%
-%% A skew binary heap 
-%%
-%% Persistence in this case means expressed as a term of purely functional data structures.
+%% Persistence in this case means expressed as a term of immutable data structures.
 %%
 %% Credits to Chris Okasaki for a phenomenal book.
 
@@ -88,6 +86,7 @@ sbt_link(X=#tree{rank=Rank, root=XRoot}, Y=#tree{rank=Rank, root=YRoot}) when XR
 sbt_link(X=#tree{rank=Rank}, Y=#tree{rank=Rank}) ->
       Y#tree{rank=X#tree.rank+1,rest=[X|Y#tree.rest]}.
 
+%% skew_link is a 3-way merge between a single element, E, and two trees of the same rank R, to create a tree of rank R+1
 skew_link(E, X, Y) ->
   N=#tree{root=NRoot,elem_rest=NRest}=sbt_link(X, Y),
   if
