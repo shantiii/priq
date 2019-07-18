@@ -1,7 +1,7 @@
 [priq][github]
 =====
 
-Pronounced "prick". Short for (minimum) **pri**ority **q**ueue.
+Short for (minimum) **pri**ority **q**ueue.
 
 An Erlang implementation of a Bootstrapped Skew Binomial Min-Heap, based off of
 the reference pseudocode in Chris Okasaki's Purely Functional Data Structures
